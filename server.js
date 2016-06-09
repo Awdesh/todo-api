@@ -1,24 +1,19 @@
 var express = require("express");
+/*
+In short; body-parser extracts the entire body portion of an incoming request 
+stream and exposes it on req.body as something easier to interface with. 
+You don't need it per se, because you could do all of that yourself. 
+However, it will most likely do what you want and save you the trouble.
+*/
+var bodyParser = require("body-parser");
+var _ = require("underscore");
 var app = express();
 var PORT = process.env.PORT || 3000;
 
-var todos = [{
-    id: 1,
-    description: 'Meet mum for lunch',
-    completed: false
-}, {
-    id: 2,
-    description: 'Clean dishes',
-    completed: false
-}, {
-    id: 3,
-    description: 'Work on side project',
-    completed: false
-}];
+var todos = [];
+var todoNextId = 1;
 
-app.get('/', function(req, res){
-    res.send('TODO API root');
-});
+app.use(bodyParser.json());
 
 app.get('/todos', function(req, res){
     res.json(todos);
@@ -26,15 +21,45 @@ app.get('/todos', function(req, res){
 
 app.get('/todos/:id', function(req, res){
     var todoId = parseInt(req.params.id, 10);
-    todos.forEach(function(todo){
-        if(todo.id === todoId){
-            res.json(todo);
-            //res.send('inside single todos-: ' + req.params.id);        
-            return;
-        }
-    });
-    res.status(404).send();
+    var matchedTodo = _.findWhere(todos, {id: todoId});
+    
+    if(matchedTodo)
+        res.send(matchedTodo);
+    else
+        res.status(404).send();
 });
+
+app.post('/todos', function(req, res){
+    var body = _.pick(req.body, 'description', 'completed');
+    
+    if(!_.isBoolean(body.completed) || !_.isString(body.description) || body.description.trim().length === 0){
+        return res.status(404).send();        
+    }
+    
+    body.description = body.description.trim();
+    body.id = todoNextId++;
+    todos.push(body);
+    console.log('description ' + body.description);
+    res.json(body);
+ });
+ 
+ app.delete('/todos/:id', function(req, res){
+     var todoId = parseInt(req.params.id, 10);
+     var matchedTodo = _.findWhere(todos, {id: todoId});
+     if(!matchedTodo)
+        return res.status(404).send();
+     todos = _.without(todos, matchedTodo);
+     
+    //  if(matchedTodos.length > 0){
+      res.json(matchedTodo);
+      todos.forEach(function(td){
+        console.log(td);    
+      });
+      
+    //  } else {
+    //      res.status(404).send();
+    //  }
+ });
 
 app.listen(PORT, function(){
     console.log('Express listening on port ' + PORT + '!');
