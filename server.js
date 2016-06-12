@@ -16,7 +16,16 @@ var todoNextId = 1;
 app.use(bodyParser.json());
 
 app.get('/todos', function(req, res){
-    res.json(todos);
+    var queryParams = req.query;
+    var filteredToDos = todos;
+    
+    if(queryParams.hasOwnProperty("completed") && queryParams.completed === 'true'){
+        filteredToDos = _.where(filteredToDos, {completed: true});
+    } else if(queryParams.hasOwnProperty("completed") && queryParams.completed === 'false'){
+        filteredToDos = _.where(filteredToDos, {completed: false});
+    }
+    
+    res.json(filteredToDos);
 });
 
 app.get('/todos/:id', function(req, res){
@@ -40,6 +49,7 @@ app.post('/todos', function(req, res){
     body.id = todoNextId++;
     todos.push(body);
     console.log('description ' + body.description);
+    // res.json automatically sends status back like 200, 4xx.
     res.json(body);
  });
  
@@ -50,15 +60,44 @@ app.post('/todos', function(req, res){
         return res.status(404).send();
      todos = _.without(todos, matchedTodo);
      
-    //  if(matchedTodos.length > 0){
       res.json(matchedTodo);
+      // below is just for the logging purposes.
       todos.forEach(function(td){
         console.log(td);    
       });
-      
-    //  } else {
-    //      res.status(404).send();
-    //  }
+ });
+ 
+ // put is like an update.
+ app.put('/todos/:id', function(req, res){
+     var body = _.pick(req.body, 'description', 'completed');
+     var todoId = parseInt(req.params.id, 10);
+     var matchedTodo = _.findWhere(todos, {id: todoId});
+    
+    if(!matchedTodo){
+        return res.status(404).send();
+    }
+    
+     var validAttributes = {};
+     
+     if(body.hasOwnProperty('completed') && _.isBoolean(body.completed)){
+         validAttributes.completed = body.completed;
+     } else if(body.hasOwnProperty('completed')){
+         res.status(400).send();
+     } else {
+         //Keep going.
+     }
+     
+     if(body.hasOwnProperty('description') && _.isString(body.description) && body.description.trim().length > 0){
+         validAttributes.description = body.description;
+     } else if(body.hasOwnProperty('description')){
+         res.status(400).send();
+     } else {
+         // Keep going.
+     }
+     
+     // objects in JS gets passed by reference, not by value.
+     _.extend(matchedTodo, validAttributes);
+     res.json(matchedTodo);
  });
 
 app.listen(PORT, function(){
