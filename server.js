@@ -19,35 +19,51 @@ app.use(bodyParser.json());
 
 app.get('/todos', function(req, res){
     var queryParams = req.query;
+    var where = {};
     var filteredToDos = todos;
     
     if(queryParams.hasOwnProperty("completed") && queryParams.completed === 'true'){
-        filteredToDos = _.where(filteredToDos, {completed: true});
+        where.completed = true;
     } else if(queryParams.hasOwnProperty("completed") && queryParams.completed === 'false'){
-        filteredToDos = _.where(filteredToDos, {completed: false});
+        where.completed = false;
     }
+    
+    // if(queryParams.hasOwnProperty('q') && queryParams.q.length > 0){
+    //     filteredToDos = _.filter(filteredToDos, function(td){
+    //         var val = td.description.toLowerCase().indexOf(queryParams.q.toLowerCase()); 
+    //         if(val > -1)
+    //             return true;
+    //         else
+    //             return false;
+    //     });
+    // }
+    
+    // res.json(filteredToDos);
     
     if(queryParams.hasOwnProperty('q') && queryParams.q.length > 0){
-        filteredToDos = _.filter(filteredToDos, function(td){
-            var val = td.description.toLowerCase().indexOf(queryParams.q.toLowerCase()); 
-            if(val > -1)
-                return true;
-            else
-                return false;
-        });
+        where.description = {
+            $like: '%' + queryParams.q + '%'
+        };
     }
     
-    res.json(filteredToDos);
+    db.todo.findAll({where: where}).then(function(todos){
+        res.json(todos);
+    }), function(e) {
+        res.status(500).send();
+    };
 });
 
 app.get('/todos/:id', function(req, res){
     var todoId = parseInt(req.params.id, 10);
-    var matchedTodo = _.findWhere(todos, {id: todoId});
-    
-    if(matchedTodo)
-        res.send(matchedTodo);
-    else
-        res.status(404).send();
+    db.todo.findById(todoId).then(function(todo){
+        if(todo) {
+            res.json(todo.toJSON());
+        } else {
+            res.status(404).send();
+        }
+    }, function(e){
+        res.status(500).send();
+    });
 });
 
 app.post('/todos', function(req, res){
