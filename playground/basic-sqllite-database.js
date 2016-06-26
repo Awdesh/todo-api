@@ -51,3 +51,5 @@ sequelize.sync().then(function(){
        console.log(e);
    });
 });
+
+
