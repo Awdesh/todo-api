@@ -7,6 +7,7 @@ However, it will most likely do what you want and save you the trouble.
 */
 var bodyParser = require("body-parser");
 var _ = require("underscore");
+var bcrypt = require("bcrypt");
 var app = express();
 var PORT = process.env.PORT || 3000;
 var IP = process.env.IP;
@@ -37,6 +38,15 @@ app.get('/todos', function(req, res){
     };
 });
 
+
+app.get('/vri', function(req, res) {
+     db.tasks.findAll().then(function(tasks){
+        res.json(tasks);
+    }), function(e) {
+        res.status(500).send();
+    };
+});
+
 app.get('/todos/:id', function(req, res){
     var todoId = parseInt(req.params.id, 10);
     db.todo.findById(todoId).then(function(todo){
@@ -62,36 +72,67 @@ app.post('/todos', function(req, res){
     });
  });
  
+app.post('/vri', function(req, res) {
+    var body = _.pick(req.body, 'deviceModelType', 'deviceType', 'hubId', 'timeZone', 'hubReceiveTime', 'hubReceiveTimeOffset', 'qcl_json_data');
+    db.tasks.create(body).then(function(task){
+        if(task)
+            return res.json(task.toJSON());
+        else
+            return res.status(404).send();
+    }, function(e){
+        return res.status(404).json(e);
+    });
+});
+ 
 app.post('/user', function(req, res){
    var body = _.pick(req.body, 'email', 'password');
    db.user.create(body).then(function(user){
        if(user)
-            return res.json(user.toJSON());
+            return res.json(user.toPublicJSON());
         else
             return res.status(404).send();
    }, function(e){
         return res.status(404).json(e);
    });
 });
+
+app.post('/user/login', function(req, res) {
+   var body = _.pick(req.body, 'email', 'password');
+   
+   if(typeof body.email !== 'string' || typeof body.password !== 'string') {
+       return res.status(404).send();
+   }
+   
+   db.user.findOne({where: {email : body.email}}).then(function(user){
+       //var has = bcrypt.compareSync(user.get('password_hash'), body.password);
+       if(user && bcrypt.compareSync(body.password, user.get('password_hash'))){
+           return res.json(user.toJSON());
+       } else {
+           return res.status(401).send();
+       }
+   }, function(e){
+       return res.status(500).send();
+   });
+});
  
- app.delete('/todos/:id', function(req, res){
-     var todoId = parseInt(req.params.id, 10);
-     db.todo.destroy({
-          where: {
-              id: todoId
-          }
-      }).then(function(rowdDeleted){
-          if(rowdDeleted == 0){
-              res.status(404).json({
-                  'error':'No row exists'
-              });
-          } else {
-              res.status(200).send();
-          }
-      }).then(function(){
-          res.status(500).send();
-      });
- });
+app.delete('/todos/:id', function(req, res){
+ var todoId = parseInt(req.params.id, 10);
+ db.todo.destroy({
+      where: {
+          id: todoId
+      }
+  }).then(function(rowdDeleted){
+      if(rowdDeleted == 0){
+          res.status(404).json({
+              'error':'No row exists'
+          });
+      } else {
+          res.status(200).send();
+      }
+  }).then(function(){
+      res.status(500).send();
+  });
+});
  
  // put is like an update.
  app.put('/todos/:id', function(req, res){
@@ -122,7 +163,7 @@ app.post('/user', function(req, res){
      });
  });
 
-db.sequelize.sync().then(function(){
+db.sequelize.sync({force: true}).then(function(){
         app.listen(PORT, function() {
             console.log('Express listening on port ' + PORT);
         });
