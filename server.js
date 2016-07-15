@@ -45,7 +45,7 @@ app.get('/vri', function(req, res) {
     }), function(e) {
         res.status(500).send();
     };
-});
+}); 
 
 app.get('/todos/:id', function(req, res){
     var todoId = parseInt(req.params.id, 10);
@@ -99,20 +99,13 @@ app.post('/user', function(req, res){
 app.post('/user/login', function(req, res) {
    var body = _.pick(req.body, 'email', 'password');
    
-   if(typeof body.email !== 'string' || typeof body.password !== 'string') {
-       return res.status(404).send();
-   }
-   
-   db.user.findOne({where: {email : body.email}}).then(function(user){
-       //var has = bcrypt.compareSync(user.get('password_hash'), body.password);
-       if(user && bcrypt.compareSync(body.password, user.get('password_hash'))){
-           return res.json(user.toJSON());
-       } else {
-           return res.status(401).send();
-       }
-   }, function(e){
-       return res.status(500).send();
+   db.user.authenticate(body).then(function(user) {
+       res.json(user.toPublicJSON());
+   }, function() {
+      res.status(401).send(); 
    });
+   
+
 });
  
 app.delete('/todos/:id', function(req, res){
